@@ -14,10 +14,11 @@ home_path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Variational_Information_Distillation Implementation via TF2.0 low-level coding')
 
 parser.add_argument("--train_dir", default="test", type=str)
+parser.add_argument("--architecture", default=[16,4], nargs='+', type=int)
 parser.add_argument("--Distillation", default="None", type=str,
                     help = 'Distillation method : Soft_logits, FitNet, AT, FSP, DML, KD-SVD, FT, AB, RKD')
 parser.add_argument("--trained_param", default="None", type=str)
-parser.add_argument("--dataset", default="cifar10", type=str)
+parser.add_argument("--dataset", default="cifar100", type=str)
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -39,25 +40,25 @@ if __name__ == '__main__':
     summary_writer = tf.summary.create_file_writer(args.train_dir)
     
     train_images, train_labels, val_images, val_labels, pre_processing = Dataloader(args.dataset, '')
-    train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels)).shuffle(100).batch(batch_size)
+    train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels)).shuffle(100*batch_size).batch(batch_size)
     train_ds = train_ds.map(pre_processing(is_training = True))
     test_ds = tf.data.Dataset.from_tensor_slices((val_images, val_labels)).batch(val_batch_size)
     test_ds = test_ds.map(pre_processing(is_training = False))
     
-    student_model = WResNet.Model(architecture=[16,4], weight_decay = weight_decay, num_class = np.max(train_labels)+1,
+    student_model = WResNet.Model(architecture=args.architecture, weight_decay = weight_decay, num_class = np.max(train_labels)+1,
                                   name = 'Student', trainable = True)
-    student_model(np.zeros([1]+list(train_images.shape[1:]), dtype=np.float32))
+    student_model(np.zeros([1]+list(train_images.shape[1:]), dtype=np.float32), training = False)
     
     if args.Distillation != 'None':
         teacher_model = WResNet.Model(architecture=[40,4], weight_decay = 0., num_class = np.max(train_labels)+1,
                                       name = 'Teacher', trainable = False)
-        teacher_model(np.zeros([1]+list(train_images.shape[1:]), dtype=np.float32))
+        teacher_model(np.zeros([1]+list(train_images.shape[1:]), dtype=np.float32), training = False)
     
     if args.Distillation in {'AB','FitNet'}: ## Initialize via KD
         init_epoch = 20
         if args.Distillation == 'AB':
             distill_model = Multiple.AB(student_model, teacher_model, weight_decay = weight_decay)
-        elif args.Distillation == 'Fitnet':
+        elif args.Distillation == 'FitNet':
             distill_model = Multiple.FitNet(student_model, teacher_model, weight_decay = weight_decay)
             
         dist_step, dist_loss = op_util.Initializer_Optimizer(student_model, teacher_model, distill_model, Learning_rate)
@@ -87,8 +88,11 @@ if __name__ == '__main__':
         if args.Distillation != 'None':
             teacher_name = teacher_model.variables[0].name.split('/')[0]
             trained = sio.loadmat(args.trained_param)
+            n = 0
             for v in teacher_model.variables + teacher_model.non_trainable_variables:
                 v.assign(trained[v.name[len(teacher_name)+1:]])
+                n += 1
+            print (n, ' : teacher params loaded')
         
         for epoch in range(init_epoch):
             train_time = time.time()
@@ -100,6 +104,7 @@ if __name__ == '__main__':
                     print (template.format(step, dist_loss.result(), (time.time()-train_time)/should_log))
                     train_time = time.time()
             tf.summary.scalar('Initializer_loss/train', dist_loss.result(), step=epoch+1)
+            dist_loss.reset_states()
             
         for epoch in range(train_epoch):
             lr = LR_scheduler(epoch)

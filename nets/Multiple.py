@@ -6,17 +6,15 @@ class FitNet(tf.keras.layers.Layer):
      Fitnets:   Hints  for  thin  deep  nets.
      arXiv preprint arXiv:1412.6550, 2014.
     '''
-    def __init__(self, target, source):
-        super(FitNet, self).__init__(target, source)
-        self.source = source
-        self.target = target
+    def __init__(self, target, source, weight_decay, **kwargs):
+        super(FitNet, self).__init__(**kwargs)
         self.linear_map = []
         self.feat_name = 'feature'
-        for t, s in zip(target, source):
-            Ds = source.shape[-1]
-            Dt = target.shape[-1]
+        for t, s in zip(target.feature, source.feature):
+            Ds = s.shape[-1]
+            Dt = t.shape[-1]
             if Ds != Dt:
-                self.linearmap.append(tcl.Conv2d([3,3], Dt, activation_fn = None))
+                self.linearmap.append(tcl.Conv2d([3,3], Ds, activation_fn = None))
             else:
                 self.linear_map.append(None)
                 
@@ -24,7 +22,7 @@ class FitNet(tf.keras.layers.Layer):
         def l2_loss(t,s,lm):
             if lm:
                 t = lm(t)
-            return tf.resuce_mean(tf.square(t-s))
+            return tf.reduce_mean(tf.square(t-s))
             
         return tf.add_n([l2_loss(t, s, lm) for t,s,lm in zip(target_feat, source_feat, self.linear_map)])
 
@@ -40,7 +38,7 @@ class AT(tf.keras.layers.Layer):
         self.feat_name = 'feature_noact'
         
     def call(self, target_feat, source_feat):
-        def AT(t,s):
+        def at(t,s):
             s = tf.reduce_mean(tf.square(s),-1)
             s = tf.nn.l2_normalize(s, [1,2])
             
@@ -48,7 +46,7 @@ class AT(tf.keras.layers.Layer):
             t = tf.nn.l2_normalize(t, [1,2])
             return tf.resuce_mean(tf.square(t-s))
             
-        return tf.add_n([AT(t, s) for t,s,lm in zip(target_feat, source_feat)])*self.beta
+        return tf.add_n([at(t, s) for t,s,lm in zip(target_feat, source_feat)])*self.beta
     
 class AB(tf.keras.layers.Layer):
     '''
@@ -78,11 +76,11 @@ class AB(tf.keras.layers.Layer):
                 self.linear_map.append(None)
                 
     def call(self, target_feat, source_feat):
-        def criterion_alternative_L2(s, t, lm, margin):
+        def criterion_alternative_L2(t, s, lm, margin):
             if lm is not None:
                 s = lm(s)
-            loss = tf.square(s + margin) * tf.cast(tf.logical_and(s > -margin, t <= 0.), tf.float32)\
-                  +tf.square(s - margin) * tf.cast(tf.logical_and(s <= margin, t > 0.), tf.float32)
+            loss = tf.square(t + margin) * tf.cast(tf.logical_and(t > -margin, s <= 0.), tf.float32)\
+                  +tf.square(t - margin) * tf.cast(tf.logical_and(t <= margin, s > 0.), tf.float32)
             return tf.reduce_mean(tf.reduce_sum(tf.abs(loss),[1,2,3]))
             
         return tf.add_n([criterion_alternative_L2(t, s, lm, self.margin)*2**(-len(target_feat)+i+1 )

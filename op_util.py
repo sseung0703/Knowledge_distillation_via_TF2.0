@@ -21,16 +21,16 @@ def Optimizer(model, LR):
         optimizer.learning_rate.assign(lr)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         
-        train_loss(loss)
-        train_accuracy(labels, predictions)
+        train_loss.update_state(loss)
+        train_accuracy.update_state(labels, predictions)
         
     @tf.function
     def validation(images, labels):
         predictions = model(images, training = False)
         loss = loss_object(labels, predictions)
         
-        test_loss(loss)
-        test_accuracy(labels, predictions)
+        test_loss.update_state(loss)
+        test_accuracy.update_state(labels, predictions)
     return training, train_loss, train_accuracy, validation, test_loss, test_accuracy
 
 def Multitask_Optimizer(target_model, source_model, distill_model, LR):
@@ -45,13 +45,13 @@ def Multitask_Optimizer(target_model, source_model, distill_model, LR):
         
     @tf.function
     def training(images, labels, lr):
-        with tf.GradientTape(persistent = True) as tape:
+        with tf.GradientTape() as tape:
             predictions = target_model(images, training = True)
             target_feat = getattr(target_model, distill_model.feat_name)
             source_feat = source_model.get_feat(images, distill_model.feat_name, False)
             
             loss = loss_object(labels, predictions)
-            distillation_loss = distill_model(target_feat, source_feat, training = True)
+            distillation_loss = distill_model(target_feat, source_feat)
             regularizer_loss = tf.add_n(target_model.losses+distill_model.losses)
             total_loss = loss + distillation_loss + regularizer_loss
             
@@ -60,16 +60,16 @@ def Multitask_Optimizer(target_model, source_model, distill_model, LR):
         optimizer.learning_rate.assign(lr)
         optimizer.apply_gradients(zip(gradients, target_model.trainable_variables))
         
-        train_loss(loss)
-        train_accuracy(labels, predictions)
+        train_loss.update_state(loss)
+        train_accuracy.update_state(labels, predictions)
         
     @tf.function
     def validation(images, labels):
         predictions = target_model(images, training = False)
         loss = loss_object(labels, predictions)
         
-        test_loss(loss)
-        test_accuracy(labels, predictions)
+        test_loss.update_state(loss)
+        test_accuracy.update_state(labels, predictions)
     return training, train_loss, train_accuracy, validation, test_loss, test_accuracy
 
 def Initializer_Optimizer(target_model, source_model, distill_model, LR):
@@ -82,7 +82,7 @@ def Initializer_Optimizer(target_model, source_model, distill_model, LR):
         with tf.GradientTape(persistent = True) as tape:
             target_feat = target_model.get_feat(images, distill_model.feat_name, True)
             source_feat = source_model.get_feat(images, distill_model.feat_name, False)
-            distillation_loss = distill_model(target_feat, source_feat, training = True)
+            distillation_loss = distill_model(target_feat, source_feat)
             regularizer_loss = tf.add_n(target_model.losses+distill_model.losses)
             
         trained_variables = target_model.trainable_variables + distill_model.trainable_variables
@@ -90,7 +90,7 @@ def Initializer_Optimizer(target_model, source_model, distill_model, LR):
         gradients_reg  = tape.gradient(regularizer_loss, trained_variables)
         
         optimizer.apply_gradients([(gd+gr,v) for gd, gr, v in zip(gradients_dist, gradients_reg, trained_variables) if gd is not None] )
-        train_loss(distillation_loss)
+        train_loss.update_state(distillation_loss)
     return training, train_loss
 
 

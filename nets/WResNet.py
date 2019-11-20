@@ -50,7 +50,6 @@ class Model(tf.keras.Model):
         
         self.feature = []
         self.feature_noact = []
-        self.logits = []
         
         for i, (c, s) in enumerate(zip(self.nChannels[1:], self.stride)):
             for j in range(self.n):
