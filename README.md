@@ -66,10 +66,9 @@ The teacher network is WResNet40-4 and Student is WResNet16-4, and the student n
 
 Methods     | Last Accuracy | Methods     | Last Accuracy 
 ------------| ------------- | ------------| ------------- 
-Teacher     | 78.96         | Student     | 71.76         
+Teacher     | 77.60         | Student     | 76.44         
 <img src="plots.png" width="800">
 # Plan to do
-- Conferm training algorithm for teacher-student network.
 - Converting TF1.x algorithm to TF2.0. ( 4/ 12 )
 - Final check for KD algorithm is on going.( 0 / 12 )
 
