@@ -65,6 +65,7 @@ The teacher network is WResNet40-4 and Student is WResNet16-4, and the student n
 ## Training/Validation accuracy
 
 # Plan to do
-- Implement training algorithm for teacher-student network.
+- Conferm training algorithm for teacher-student network.
+- Converting TF1.x algorithm to TF2.0. ( 4/ 12 )
 - Final check for KD algorithm is on going.( 0 / 12 )
 
