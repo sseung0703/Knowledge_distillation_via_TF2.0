@@ -14,14 +14,14 @@ class FitNet(tf.keras.layers.Layer):
             Ds = s.shape[-1]
             Dt = t.shape[-1]
             if Ds != Dt:
-                self.linearmap.append(tcl.Conv2d([3,3], Ds, activation_fn = None))
+                self.linearmap.append(tcl.Conv2d([3,3], Dt, activation_fn = None))
             else:
                 self.linear_map.append(None)
                 
     def call(self, target_feat, source_feat):
         def l2_loss(t,s,lm):
             if lm:
-                t = lm(t)
+                t = lm(t, True)
             return tf.reduce_mean(tf.square(t-s))
             
         return tf.add_n([l2_loss(t, s, lm) for t,s,lm in zip(target_feat, source_feat, self.linear_map)])
@@ -32,8 +32,8 @@ class AT(tf.keras.layers.Layer):
      Paying more attention to attention: Improving the performance of convolutional neural networks via attention transfer.
      arXiv preprint arXiv:1612.03928, 2016.
     '''
-    def __init__(self, target, source, beta = 1e3):
-        super(AT, self).__init__(target, source, beta)
+    def __init__(self, target, source, beta = 1e3, **kwargs):
+        super(AT, self).__init__(**kwargs)
         self.beta = beta
         self.feat_name = 'feature_noact'
         
@@ -44,9 +44,9 @@ class AT(tf.keras.layers.Layer):
             
             t = tf.reduce_mean(tf.square(t),-1)
             t = tf.nn.l2_normalize(t, [1,2])
-            return tf.resuce_mean(tf.square(t-s))
+            return tf.reduce_mean(tf.square(t-s))
             
-        return tf.add_n([at(t, s) for t,s,lm in zip(target_feat, source_feat)])*self.beta
+        return tf.add_n([at(t, s) for t,s in zip(target_feat, source_feat)])*self.beta
     
 class AB(tf.keras.layers.Layer):
     '''
@@ -76,38 +76,48 @@ class AB(tf.keras.layers.Layer):
                 self.linear_map.append(None)
                 
     def call(self, target_feat, source_feat):
-        def criterion_alternative_L2(t, s, lm, margin):
+        def criterion_alternative_L2(s, t, lm, margin):
             if lm is not None:
-                s = lm(s)
-            loss = tf.square(t + margin) * tf.cast(tf.logical_and(t > -margin, s <= 0.), tf.float32)\
-                  +tf.square(t - margin) * tf.cast(tf.logical_and(t <= margin, s > 0.), tf.float32)
+                s = lm(s, True)
+            loss = tf.square(s + margin) * tf.cast(tf.logical_and(s > -margin, t <= 0.), tf.float32)\
+                  +tf.square(s - margin) * tf.cast(tf.logical_and(s <= margin, t > 0.), tf.float32)
             return tf.reduce_mean(tf.reduce_sum(tf.abs(loss),[1,2,3]))
             
-        return tf.add_n([criterion_alternative_L2(t, s, lm, self.margin)*2**(-len(target_feat)+i+1 )
+        return tf.add_n([criterion_alternative_L2(t, s, lm, self.margin)*2**( -i )
                          for i, (t,s,lm) in enumerate(zip(target_feat, source_feat, self.linear_map))])*self.weight
     
 class VID(tf.keras.layers.Layer):
-    def __init__(self, target, source, weight_decay, **kwargs):
+    def __init__(self, target, source, weight_decay, l = 1, **kwargs):
         super(VID, self).__init__(**kwargs)
         self.source = source
         self.target = target
         self.linear_map = []
         self.alpha = []
+        self.l = l
         self.feat_name = 'feature'
+        def kwargs(**kwargs):
+            return kwargs
+        setattr(tcl.Conv2d, 'pre_defined', kwargs(kernel_regularizer = tf.keras.regularizers.l2(weight_decay),
+                                                  use_biases = False, activation_fn = None))
+        setattr(tcl.BatchNorm, 'pre_defined', kwargs(param_regularizers = {'gamma':tf.keras.regularizers.l2(weight_decay),
+                                                                            'beta':tf.keras.regularizers.l2(weight_decay)}))
         
         for t, s in zip(target.feature, source.feature):
             Ds = s.shape[-1]
             layers = []
             for i in range(3):
                 tcl.Conv2d([1,1], Ds if i == 2 else Ds*2)
-                tcl.BatchNorm(activation_fn = None if i == 2 else tf.nn.relu)
+                if i < 2:
+                    tcl.BatchNorm(activation_fn = tf.nn.relu)
             self.linear_map.append(tf.keras.Sequential(layers))
-            self.alpha.append(self.add_weight(name  = 'alpha', shape = [1,1,1,Ds], initializer=tf.constant_initializer(5.)))
+            self.alpha.append(self.add_weight(name  = 'alpha', shape = [1,1,1,Ds], 
+                                              initializer=tf.keras.initializers.Constant(5.)))
             
     def call(self, target_feat, source_feat):
         def VID_loss(t, s, lm, alpha):
-            s = lm(s)
+            s = lm(s, True)
             var   = tf.math.softplus(alpha)+1
-            return tf.reduce_mean(tf.log(var) + tf.square(t - s)/var)/2
+            return tf.reduce_mean(tf.math.log(var) + tf.square(t - s)/var)/2
         
-        return tf.add_n([VID_loss(*args) for args in zip(target_feat, source_feat, self.linear_map, self.alpha)])
+        return tf.add_n([VID_loss(*args) for args in zip(target_feat, source_feat, self.linear_map, self.alpha)])*self.l
+

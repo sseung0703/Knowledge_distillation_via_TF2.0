@@ -63,12 +63,15 @@ I use the same hyper-parameter for training each network, and only tune hyper-pa
 The teacher network is WResNet40-4 and Student is WResNet16-4, and the student network is well-converged (not over and under-fit) for evaluating each distillation algorithm performance precisely.
 
 ## Training/Validation accuracy
-
+(* means that it looks working well but need more check)
 Methods     | Last Accuracy | Methods     | Last Accuracy 
 ------------| ------------- | ------------| ------------- 
-Teacher     | 77.60         | Student     | 76.44         
+Teacher     | 77.80         | Student     | 76.37         
+FitNet*     | 74.91         | AT     | 77.55         
+AB*     | 76.57         | RKD*     | 76.57         
+
 <img src="plots.png" width="800">
 # Plan to do
-- Converting TF1.x algorithm to TF2.0. ( 4/ 12 )
-- Final check for KD algorithm is on going.( 0 / 12 )
+- Converting TF1.x algorithm to TF2.0. ( 9 / 12 )
+- Final check for KD algorithm is on going.( 4 / 12 )
 

@@ -1,161 +1,153 @@
 import tensorflow as tf
 from nets import SVP
 from nets import tcl
-class FitNet(tf.keras.layers.Layer):
-    '''
-     Adriana Romero, Nicolas Ballas, Samira Ebrahimi Kahou, Antoine Chassang, Carlo Gatta,  and  Yoshua  Bengio.
-     Fitnets:   Hints  for  thin  deep  nets.
-     arXiv preprint arXiv:1412.6550, 2014.
-    '''
-    def __init__(self, target, source):
-        super(FitNet, self).__init__(target, source)
-        self.source = source
-        self.target = target
-        self.linear_map = []
-        self.feat_name = 'feature'
-        for t, s in zip(target, source):
-            Ds = source.shape[-1]
-            Dt = target.shape[-1]
-            if Ds != Dt:
-                self.linearmap.append(tcl.Conv2d([3,3], Dt, activation_fn = None))
-            else:
-                self.linear_map.append(None)
-                
-    def call(self, target_feat, source_feat):
-        def l2_loss(t,s,lm):
-            if lm:
-                t = lm(t)
-            return tf.resuce_mean(tf.square(t-s))
-            
-        return tf.add_n([l2_loss(t, s, lm) for t,s,lm in zip(target_feat, source_feat, self.linear_map)])
 
-def RKD(source, target, l = [1e2,2e2]):
+class RKD(tf.keras.layers.Layer):
     '''
-    Wonpyo Park, Dongju Kim, Yan Lu, Minsu Cho.  
+    Wonpyo Park, Dongju Kim, Yan Lu, Minsu Cho.
     relational knowledge distillation.
     arXiv preprint arXiv:1904.05068, 2019.
     '''
-    with tf.variable_scope('Relational_Knowledge_distillation'):
+    def __init__(self, target, source, l = [25,50], **kwargs):
+        super(RKD, self).__init__(**kwargs)
+        self.l = l
+        self.feat_name = 'last_embedded'
+
+    def call(self, target_feat, source_feat):
         def Huber_loss(x,y):
-            with tf.variable_scope('Huber_loss'):
-                return tf.reduce_mean(tf.where(tf.less_equal(tf.abs(x-y), 1.), 
+            with tf.name_scope('Huber_loss'):
+                return tf.reduce_mean(tf.where(tf.less_equal(tf.abs(x-y), 1.),
                                                tf.square(x-y)/2, tf.abs(x-y)-1/2))
-            
+
         def Distance_wise_potential(x):
-            with tf.variable_scope('DwP'):
+            with tf.name_scope('DwP'):
                 x_square = tf.reduce_sum(tf.square(x),-1)
                 prod = tf.matmul(x,x,transpose_b=True)
                 distance = tf.sqrt(tf.maximum(tf.expand_dims(x_square,1)+tf.expand_dims(x_square,0) -2*prod, 1e-12))
-                mu = tf.reduce_sum(distance)/tf.reduce_sum(tf.where(distance > 0., tf.ones_like(distance), tf.zeros_like(distance)))
+                mu = tf.reduce_sum(distance)/tf.reduce_sum(tf.cast(distance > 0., tf.float32))
                 return distance/(mu+1e-8)
-            
+
         def Angle_wise_potential(x):
-            with tf.variable_scope('AwP'):
+            with tf.name_scope('AwP'):
                 e = tf.expand_dims(x,0)-tf.expand_dims(x,1)
                 e_norm = tf.nn.l2_normalize(e,2)
             return tf.matmul(e_norm, e_norm,transpose_b=True)
 
-        source = tf.nn.l2_normalize(source,1)
-        target = tf.nn.l2_normalize(target,1)
-        distance_loss = Huber_loss(Distance_wise_potential(source),Distance_wise_potential(target))
-        angle_loss    = Huber_loss(   Angle_wise_potential(source),   Angle_wise_potential(target))
-        
-        return distance_loss*l[0]+angle_loss*l[1]    
-    
-def MHGD(student_feature_maps, teacher_feature_maps):
+        t = tf.nn.l2_normalize(target_feat,1)
+        s = tf.nn.l2_normalize(source_feat,1)
+
+        distance_loss = Huber_loss(Distance_wise_potential(t),Distance_wise_potential(s))
+        angle_loss    = Huber_loss(   Angle_wise_potential(t),   Angle_wise_potential(s))
+
+        return distance_loss*self.l[0]+angle_loss*self.l[1]
+
+class MHGD(tf.keras.layers.Layer):
     '''
     Seunghyun Lee, Byung Cheol Song.
     Graph-based Knowledge Distillation by Multi-head Attention Network.
     British Machine Vision Conference (BMVC) 2019
     '''
-    with tf.variable_scope('MHGD'):
-        GNN_losses = []
-        num_head = 8
-        V_Tb = V_Sb = None
-        num_feat = len(student_feature_maps)
-        for i, sfm, tfm in zip(range(num_feat), student_feature_maps, teacher_feature_maps):
-            with tf.variable_scope('Compress_feature_map%d'%i):
-                Sigma_T, U_T, V_T = SVP.SVD_eid(tfm, 1, name = 'TSVD%d'%i)
-                _,       U_S, V_S = SVP.SVD_eid(sfm, 4, name = 'SSVD%d'%i)
-                V_S, V_T = SVP.Align_rsv(V_S, V_T)
-                D = V_T.get_shape().as_list()[1]
-            
-                V_T = tf.reshape(V_T,[-1,D])
-                V_S = tf.reshape(V_S,[-1,D])
+    def __init__(self, target, source, weight_decay, num_head = 8,  **kwargs):
+        super(MHGD, self).__init__(**kwargs)
+        self.num_head = num_head
+        self.linear_map = []
+        self.Q = [None]
+        self.K = [None]
+        self.E = [None]
+        self.feat_name = 'feature'
 
-            with tf.variable_scope('MHA%d'%i):
-                if i > 0:
-                    _,D_, = V_Sb.get_shape().as_list()
-                    D2 = (D+D_)//2
-                    G_T = Attention_head(V_T, V_Tb, D2, num_head, 'Attention', is_training = True)
-                    V_T_ = Estimator(V_Tb, G_T, D, num_head, 'Estimator', is_training = True)
-                    tf.add_to_collection('MHA_loss', tf.reduce_mean(1-tf.reduce_sum(V_T_*V_T, -1)) )
-                    
-                    G_T = Attention_head(V_T, V_Tb, D2, num_head, 'Attention', reuse = True)
-                    G_S = Attention_head(V_S, V_Sb, D2, num_head, 'Attention', reuse = True)
-                    G_T = tf.tanh(G_T)
-                    G_S = tf.tanh(G_S)
-               
-                    GNN_losses.append(kld_loss(G_S, G_T))
-                    
-            V_Tb, V_Sb = V_T, V_S
+        def kwargs(**kwargs):
+            return kwargs
+        setattr(tcl.FC, 'pre_defined', kwargs(kernel_regularizer = tf.keras.regularizers.l2(weight_decay),
+                                              use_biases = False, activation_fn = None))
+        setattr(tcl.BatchNorm, 'pre_defined', kwargs(param_regularizers = {'gamma' : tf.keras.regularizers.l2(weight_decay),
+                                                                            'beta' : tf.keras.regularizers.l2(weight_decay)}))
 
-        transfer_loss =  tf.add_n(GNN_losses)
+        for i, (t,s) in enumerate(zip(target.feature, source.feature)):
+            if t.shape[-1] != s.shape[-1]:
+                self.linear_map.append(tf.keras.Sequential([tcl.FC(s.shape[-1]), tcl.BatchNorm()]))
+            else:
+                self.linear_map.append(None)
 
-        return transfer_loss
-    
-def Attention_head(K, Q, D, num_head, name, is_training = False, reuse = False):
-    with tf.variable_scope(name):
-        with tf.contrib.framework.arg_scope([tf.contrib.layers.fully_connected], trainable = not(reuse), reuse = reuse,
-                                            weights_regularizer=None, variables_collections = [tf.GraphKeys.GLOBAL_VARIABLES,'MHA']):
-            with tf.contrib.framework.arg_scope([tf.contrib.layers.batch_norm], activation_fn=None, trainable = not(reuse), is_training = is_training, reuse =  reuse,
-                                                param_regularizers = None, variables_collections=[tf.GraphKeys.GLOBAL_VARIABLES,'MHA']):
-                B = tf.squeeze(tf.slice(tf.shape(K),[0],[1]))
+            if i > 0:
+                D = (t.shape[-1]+t_.shape[-1])//2
+                self.Q.append(tf.keras.Sequential([tcl.FC(D*num_head), tcl.BatchNorm()]))
+                self.K.append(tf.keras.Sequential([tcl.FC(D*num_head), tcl.BatchNorm()]))
+                self.E.append([tcl.FC(D), tcl.BatchNorm(activation_fn = tf.nn.relu), tcl.FC(t.shape[-1], use_biases = True)])
+
+            t_ = t
+
+    @staticmethod
+    def Attention_head(f, b, K, Q, D, num_head, training = False):
+        B = f.shape[0]
+
+        k = K(f, training = training)
+        q = Q(b, training = training)
+
+        k = tf.reshape(k, [B, D, num_head])
+        q = tf.reshape(q, [B, D, num_head])
                 
-                X_sender   = tf.contrib.layers.fully_connected(K, D*num_head, scope = 'Sfc')
-                X_sender   = tf.contrib.layers.batch_norm(X_sender, scope = 'Sbn')
-                X_sender   = tf.reshape(X_sender,   [B, D, num_head])
+        k = tf.transpose(k,[2,0,1])
+        q = tf.transpose(q,[2,1,0])
+        return tf.matmul(k, q)
 
-                X_receiver = tf.contrib.layers.fully_connected(Q, D*num_head, scope = 'Rfc', reuse = reuse)
-                X_receiver = tf.contrib.layers.batch_norm(X_receiver, scope = 'Rbn')
-                X_receiver = tf.reshape(X_receiver, [B, D, num_head])
-                
-                X_sender   = tf.transpose(X_sender,  [2,0,1])
-                X_receiver = tf.transpose(X_receiver,[2,1,0])
-                X_ah = tf.matmul(X_sender, X_receiver)
+    @staticmethod
+    def Estimator(f, G, E, Db, num_head, training):
+        B = G.shape[1]
+        G = tf.nn.softmax(G)
 
-    return X_ah
-
-def Estimator(X, G, Dy, num_head, name, is_training):
-    with tf.variable_scope(name):
-        with tf.contrib.framework.arg_scope([tf.contrib.layers.fully_connected], trainable = True, 
-                                            weights_regularizer=None, variables_collections = [tf.GraphKeys.GLOBAL_VARIABLES,'MHA']):
-            with tf.contrib.framework.arg_scope([tf.contrib.layers.batch_norm], activation_fn=tf.nn.relu, trainable = True,
-                                                param_regularizers = None, variables_collections=[tf.GraphKeys.GLOBAL_VARIABLES,'MHA']):
-                B = tf.squeeze(tf.slice(tf.shape(G),[1],[1]))
-                G = tf.nn.softmax(G)
-                G = drop_head(G, [num_head, B, 1])
-                G = tf.reshape(G, [num_head*B, B])
-                
-                Dx = X.get_shape().as_list()[-1]
-                D = (Dx+Dy)//2
-                
-                X = tf.contrib.layers.fully_connected(X, D, scope = 'fc0')
-                X = tf.contrib.layers.batch_norm(X, scope = 'bn0', is_training = is_training)
-
-                X = tf.reshape(tf.matmul(G, X), [num_head, B, D])
-                X = tf.reshape(tf.transpose(X,[1,0,2]),[B,D*num_head])
-                
-                X = tf.contrib.layers.fully_connected(X, Dy, biases_initializer=tf.zeros_initializer(), scope = 'fc1')
-                X = tf.nn.l2_normalize(X, -1)
-    return X
-    
-def drop_head(G, shape):
-    with tf.variable_scope('Drop'):
-        noise = tf.random.normal(shape)
+        noise = tf.keras.backend.random_normal([num_head, B, 1])
         G *= tf.where(noise - tf.reduce_mean(noise, 0, keepdims=True) > 0, tf.ones_like(noise), tf.zeros_like(noise))
-        return G
-        
-def kld_loss(X, Y):
-    with tf.variable_scope('KLD'):
+        G = tf.reshape(G, [num_head*B, B])
+                
+        Df = f.shape[-1]
+        D = (Df+Db)//2
+
+        f = E[1](E[0](f), training = training)
+        f = tf.reshape(tf.matmul(G, f), [num_head, B, D])
+        f = tf.reshape(tf.transpose(f,[1,0,2]),[B,D*num_head])
+
+        f = E[2](f)                
+        b_ = tf.nn.l2_normalize(f, -1)
+        return b_
+    
+    @staticmethod
+    def kld_loss(X, Y):
         return tf.reduce_sum( tf.nn.softmax(X)*(tf.nn.log_softmax(X)-tf.nn.log_softmax(Y)) )
+
+    def call(self, student_feat, teacher_feat, training = False):
+        KD_losses = []
+        MHA_losses = []
+        for i, (s,t,lm,q,k,e) in enumerate(zip(student_feat, teacher_feat, self.linear_map, self.Q, self.K, self.E)):
+            if lm:
+                s = lm(s)
+            _,_,t = SVP.SVD(t, 1, 'EID')
+            _,_,s = SVP.SVD(s, 4, 'EID')
+            s, t = SVP.Align_rsv(s, t)
+            D = s.shape[1]
+            
+            t = tf.reshape(t,[-1,D])
+            s = tf.reshape(s,[-1,D])
+
+            if i > 0:
+                D_ = sb.shape[1]
+                D2 = (D+D_)//2
+                G_T = self.Attention_head(t, tb, k, q, D2, self.num_head, training = training)
+                t_  = self.Estimator(tb, G_T, e, D, self.num_head, training = training)
+                MHA_losses.append(tf.reduce_mean(1-tf.reduce_sum(t_*t,1)))
+                    
+                G_T = self.Attention_head(t, tb, k, q, D2, self.num_head, training = False)
+                G_S = self.Attention_head(s, sb, k, q, D2, self.num_head, training = False)
+
+                G_T = tf.tanh(G_T)
+                G_S = tf.tanh(G_S)
+               
+                KD_losses.append(self.kld_loss(G_S, G_T))
+                    
+            tb, sb = t, s
+        self.MHA_loss = tf.add_n(MHA_losses)
+        return tf.add_n(KD_losses)
+
+    def aux_call(self, target_feat, source_feat, training = False):
+        self.call(target_feat, source_feat, training = training)
+        return self.MHA_loss
