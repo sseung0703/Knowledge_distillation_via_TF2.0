@@ -72,6 +72,7 @@ FitNet*     | 74.91         | AT     | 77.55
 AB*         | 76.57         | RKD*     | 76.57         
 
 <img src="plots.png" width="800">
+
 # Plan to do
 - Converting TF1.x algorithm to TF2.0. ( 9 / 12 )
 - Final check for KD algorithm is on going.( 4 / 12 )
