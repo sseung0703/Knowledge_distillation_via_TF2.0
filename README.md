@@ -64,11 +64,12 @@ The teacher network is WResNet40-4 and Student is WResNet16-4, and the student n
 
 ## Training/Validation accuracy
 (* means that it looks working well but need more check)
+
 Methods     | Last Accuracy | Methods     | Last Accuracy 
 ------------| ------------- | ------------| ------------- 
 Teacher     | 77.80         | Student     | 76.37         
 FitNet*     | 74.91         | AT     | 77.55         
-AB*     | 76.57         | RKD*     | 76.57         
+AB*         | 76.57         | RKD*     | 76.57         
 
 <img src="plots.png" width="800">
 # Plan to do
