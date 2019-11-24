@@ -98,7 +98,8 @@ class VID(tf.keras.layers.Layer):
         def kwargs(**kwargs):
             return kwargs
         setattr(tcl.Conv2d, 'pre_defined', kwargs(kernel_regularizer = tf.keras.regularizers.l2(weight_decay),
-                                                  use_biases = False, activation_fn = None))
+                                                  biases_regularizer = tf.keras.regularizers.l2(weight_decay),
+                                                  activation_fn = None))
         setattr(tcl.BatchNorm, 'pre_defined', kwargs(param_regularizers = {'gamma':tf.keras.regularizers.l2(weight_decay),
                                                                             'beta':tf.keras.regularizers.l2(weight_decay)}))
         
@@ -106,17 +107,17 @@ class VID(tf.keras.layers.Layer):
             Ds = s.shape[-1]
             layers = []
             for i in range(3):
-                tcl.Conv2d([1,1], Ds if i == 2 else Ds*2)
+                layers.append(tcl.Conv2d([1,1], Ds if i == 2 else Ds*2))
                 if i < 2:
-                    tcl.BatchNorm(activation_fn = tf.nn.relu)
+                    layers.append(tcl.BatchNorm(activation_fn = tf.nn.relu))
             self.linear_map.append(tf.keras.Sequential(layers))
-            self.alpha.append(self.add_weight(name  = 'alpha', shape = [1,1,1,Ds], 
+            self.alpha.append(self.add_weight(name  = 'alpha', shape = [1,1,1,Ds],trainable = True, 
                                               initializer=tf.keras.initializers.Constant(5.)))
             
     def call(self, target_feat, source_feat):
         def VID_loss(t, s, lm, alpha):
-            s = lm(s, True)
-            var   = tf.math.softplus(alpha)+1
+            t = lm(t, True)
+            var = tf.math.softplus(alpha)+1e-5
             return tf.reduce_mean(tf.math.log(var) + tf.square(t - s)/var)/2
         
         return tf.add_n([VID_loss(*args) for args in zip(target_feat, source_feat, self.linear_map, self.alpha)])*self.l

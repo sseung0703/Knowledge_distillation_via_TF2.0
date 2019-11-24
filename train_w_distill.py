@@ -7,6 +7,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 from dataloader import Dataloader
 import op_util
 from nets import WResNet
+from nets import Response
 from nets import Multiple
 from nets import Shared
 from nets import Relation
@@ -94,7 +95,7 @@ if __name__ == '__main__':
             distill_model = Relation.MHGD(student_model, teacher_model, weight_decay = weight_decay)
             clipped = True
             
-        init_step,  init_loss = op_util.Auxiliary_Optimizer(student_model, teacher_model, distill_model, Learning_rate)
+        init_step,  init_loss = op_util.Auxiliary_Optimizer(teacher_model, distill_model, Learning_rate)
         train_step, train_loss, train_accuracy, dist_loss,\
         test_step,  test_loss,  test_accuracy = op_util.Multitask_Optimizer(student_model, teacher_model, distill_model,
                                                                             Learning_rate, clipped = clipped)
@@ -145,7 +146,6 @@ if __name__ == '__main__':
                     train_time = time.time()
             tf.summary.scalar('Categorical_loss/train', train_loss.result(), step=epoch+1)
             tf.summary.scalar('Accuracy/train', train_accuracy.result()*100, step=epoch+1)
-
             tf.summary.scalar('learning_rate', lr, step=epoch)
                 
             for test_images, test_labels in test_ds:
@@ -165,7 +165,7 @@ if __name__ == '__main__':
             test_loss.reset_states()
             test_accuracy.reset_states()
 
-            if args.Distillation not in {'None','AB','FitNet'}:
+            if args.Distillation not in {'None','AB','FitNet','FSP'}:
                 tf.summary.scalar('Distillation_loss/train', dist_loss.result(), step=epoch+1)
                 dist_loss.reset_states()
 

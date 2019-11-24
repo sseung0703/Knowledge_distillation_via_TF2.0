@@ -70,15 +70,15 @@ class MHGD(tf.keras.layers.Layer):
                 self.linear_map.append(None)
 
             if i > 0:
-                D = (t.shape[-1]+t_.shape[-1])//2
-                self.Q.append(tf.keras.Sequential([tcl.FC(D*num_head), tcl.BatchNorm()]))
-                self.K.append(tf.keras.Sequential([tcl.FC(D*num_head), tcl.BatchNorm()]))
-                self.E.append([tcl.FC(D), tcl.BatchNorm(activation_fn = tf.nn.relu), tcl.FC(t.shape[-1], use_biases = True)])
-
+                with tf.name_scope('Aux'): 
+                    D = (t.shape[-1]+t_.shape[-1])//2
+                    self.Q.append(tf.keras.Sequential([tcl.FC(D*num_head), tcl.BatchNorm()]))
+                    self.K.append(tf.keras.Sequential([tcl.FC(D*num_head), tcl.BatchNorm()]))
+                    self.E.append([tcl.FC(D), tcl.BatchNorm(activation_fn = tf.nn.relu), 
+                                   tcl.FC(t.shape[-1], use_biases = True, biases_regularizer = tf.keras.regularizers.l2(weight_decay))])
             t_ = t
 
-    @staticmethod
-    def Attention_head(f, b, K, Q, D, num_head, training = False):
+    def Attention_head(self, f, b, K, Q, D, num_head, training = False):
         B = f.shape[0]
 
         k = K(f, training = training)
@@ -91,8 +91,7 @@ class MHGD(tf.keras.layers.Layer):
         q = tf.transpose(q,[2,1,0])
         return tf.matmul(k, q)
 
-    @staticmethod
-    def Estimator(f, G, E, Db, num_head, training):
+    def Estimator(self, f, G, E, Db, num_head, training):
         B = G.shape[1]
         G = tf.nn.softmax(G)
 
@@ -107,17 +106,15 @@ class MHGD(tf.keras.layers.Layer):
         f = tf.reshape(tf.matmul(G, f), [num_head, B, D])
         f = tf.reshape(tf.transpose(f,[1,0,2]),[B,D*num_head])
 
-        f = E[2](f)                
+        f = E[2](f)
         b_ = tf.nn.l2_normalize(f, -1)
         return b_
     
-    @staticmethod
-    def kld_loss(X, Y):
+    def kld_loss(self, X, Y):
         return tf.reduce_sum( tf.nn.softmax(X)*(tf.nn.log_softmax(X)-tf.nn.log_softmax(Y)) )
 
     def call(self, student_feat, teacher_feat, training = False):
         KD_losses = []
-        MHA_losses = []
         for i, (s,t,lm,q,k,e) in enumerate(zip(student_feat, teacher_feat, self.linear_map, self.Q, self.K, self.E)):
             if lm:
                 s = lm(s)
@@ -132,10 +129,6 @@ class MHGD(tf.keras.layers.Layer):
             if i > 0:
                 D_ = sb.shape[1]
                 D2 = (D+D_)//2
-                G_T = self.Attention_head(t, tb, k, q, D2, self.num_head, training = training)
-                t_  = self.Estimator(tb, G_T, e, D, self.num_head, training = training)
-                MHA_losses.append(tf.reduce_mean(1-tf.reduce_sum(t_*t,1)))
-                    
                 G_T = self.Attention_head(t, tb, k, q, D2, self.num_head, training = False)
                 G_S = self.Attention_head(s, sb, k, q, D2, self.num_head, training = False)
 
@@ -145,9 +138,22 @@ class MHGD(tf.keras.layers.Layer):
                 KD_losses.append(self.kld_loss(G_S, G_T))
                     
             tb, sb = t, s
-        self.MHA_loss = tf.add_n(MHA_losses)
         return tf.add_n(KD_losses)
 
-    def aux_call(self, target_feat, source_feat, training = False):
-        self.call(target_feat, source_feat, training = training)
-        return self.MHA_loss
+    def aux_call(self, teacher_feat, training = False):
+        MHA_losses = []
+        with tf.name_scope('Aux'): 
+            for i, (t,q,k,e) in enumerate(zip(teacher_feat, self.Q, self.K, self.E)):
+                _,_,t = SVP.SVD(t, 1, 'EID')
+                D = t.shape[1]
+            
+                t = tf.reshape(t,[-1,D])
+
+                if i > 0:
+                    D_ = tb.shape[1]
+                    D2 = (D+D_)//2
+                    G_T = self.Attention_head(t, tb, k, q, D2, self.num_head, training = training)
+                    t_  = self.Estimator(tb, G_T, e, D, self.num_head, training = training)
+                    MHA_losses.append(tf.reduce_mean(1-tf.reduce_sum(t_*t,1)))
+                tb = t
+            return tf.add_n(MHA_losses)

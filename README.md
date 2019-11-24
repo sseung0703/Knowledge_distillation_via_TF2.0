@@ -68,12 +68,14 @@ The teacher network is WResNet40-4 and Student is WResNet16-4, and the student n
 Methods     | Last Accuracy | Methods     | Last Accuracy 
 ------------| ------------- | ------------| ------------- 
 Teacher     | 77.80         | Student     | 76.37         
-FitNet*     | 74.91         | AT     | 77.55         
+Soft_logits  | 76.77       | FitNet*     | 74.91
+AT     | 77.55              | FSP*     | 73.15
+KD_SVD    | 76.85         | KD_EID     | 77.22
 AB*         | 76.57         | RKD*     | 76.57         
 
 <img src="plots.png" width="800">
-
 # Plan to do
-- Converting TF1.x algorithm to TF2.0. ( 9 / 12 )
-- Final check for KD algorithm is on going.( 4 / 12 )
+- Converting TF1.x algorithm to TF2.0. ( 10 / 12 )
+- Final check for KD algorithm is on going.( 8 / 12 )
+
 

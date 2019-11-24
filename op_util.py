@@ -46,7 +46,6 @@ def Multitask_Optimizer(target_model, source_model, distill_model, LR, clipped =
         
     @tf.function
     def training(images, labels, lr):
-        trained_variables = target_model.trainable_variables + distill_model.trainable_variables
         with tf.GradientTape(persistent = clipped) as tape:
             predictions, target_feat = target_model.get_feat(images, distill_model.feat_name, True)
             _,source_feat = source_model.get_feat(images, distill_model.feat_name, False)
@@ -58,6 +57,8 @@ def Multitask_Optimizer(target_model, source_model, distill_model, LR, clipped =
             target_loss = loss + regularizer_loss
             total_loss = target_loss + distillation_loss
 
+        trained_variables = target_model.trainable_variables\
+                          + [v for v in distill_model.trainable_variables if v.name.split('/')[0] != 'Aux']
         if clipped:
             gradients_dist   = tape.gradient(distillation_loss, trained_variables)
             gradients_target = tape.gradient(target_loss, trained_variables)
@@ -99,11 +100,12 @@ def Initializer_Optimizer(target_model, source_model, distill_model, LR):
         trained_variables = target_model.trainable_variables + distill_model.trainable_variables
         gradients_dist = tape.gradient(distillation_loss, trained_variables)
         gradients_reg  = tape.gradient(regularizer_loss, trained_variables)
+
         optimizer.apply_gradients([(gd+gr,v) for gd, gr, v in zip(gradients_dist, gradients_reg, trained_variables) if gd is not None] )
         train_loss.update_state(distillation_loss)
     return training, train_loss
 
-def Auxiliary_Optimizer(target_model, source_model, distill_model, LR):
+def Auxiliary_Optimizer(source_model, distill_model, LR):
     with tf.name_scope('Optimizer_w_Distillation'):
         optimizer = tf.keras.optimizers.SGD(LR, .9, nesterov=True)
         train_loss = tf.keras.metrics.Mean(name='distill_loss')
@@ -111,15 +113,14 @@ def Auxiliary_Optimizer(target_model, source_model, distill_model, LR):
     @tf.function
     def training(images):
         with tf.GradientTape(persistent = True) as tape:
-            _, target_feat = target_model.get_feat(images, distill_model.feat_name, True)
             _, source_feat = source_model.get_feat(images, distill_model.feat_name, False)
-            aux_loss = distill_model.aux_call(target_feat, source_feat, training = True)
-            regularizer_loss = tf.add_n(target_model.losses+distill_model.losses)
+            aux_loss = distill_model.aux_call(source_feat, training = True)
+            aux_loss += tf.add_n(distill_model.losses)
             
-        trained_variables = distill_model.trainable_variables
-        gradients_aux = tape.gradient(aux_loss, trained_variables)
-        gradients_reg = tape.gradient(regularizer_loss, trained_variables)
-        optimizer.apply_gradients([(ga+gr,v) for ga, gr, v in zip(gradients_aux, gradients_reg, trained_variables) if ga is not None] )
+        trained_variables = distill_model.trainable_variables\
+                          + [v for v in distill_model.trainable_variables if v.name.split('/')[0] == 'Aux']
+        gradients = tape.gradient(aux_loss, trained_variables)
+        optimizer.apply_gradients(zip(gradients, trained_variables))
         train_loss.update_state(aux_loss)
     return training, train_loss
 
