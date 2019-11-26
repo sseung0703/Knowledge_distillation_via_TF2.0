@@ -64,6 +64,7 @@ The teacher network is WResNet40-4 and Student is WResNet16-4, and the student n
 
 ## Training/Validation accuracy
 (* means that it looks working well but need more check)
+
 |             |  Full Dataset |  50% Dataset  |  25% Dataset  |  10% Dataset  |
 |:-----------:|:-------------:|:-------------:|:-------------:|:-------------:|
 |   Methods   | Accuracy | Last Accuracy | Last Accuracy | Last Accuracy |
@@ -81,6 +82,7 @@ The teacher network is WResNet40-4 and Student is WResNet16-4, and the student n
 |     RKD*    |         76.57 |         71.10 |         61.63 |         33.01 |
 |     VID     |               |               |               |               |
 |     MHGD    |         77.23 |         72.94 |         67.31 |         51.97 |
+
 # Plan to do
 - Converting TF1.x algorithm to TF2.0. ( 10 / 12 )
 - Final check for KD algorithm is on going.( 9 / 12 )
