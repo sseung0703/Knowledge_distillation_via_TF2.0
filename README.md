@@ -64,18 +64,25 @@ The teacher network is WResNet40-4 and Student is WResNet16-4, and the student n
 
 ## Training/Validation accuracy
 (* means that it looks working well but need more check)
-
-Methods     | Last Accuracy | Methods     | Last Accuracy 
-------------| ------------- | ------------| ------------- 
-Teacher     | 77.80         | Student     | 76.37         
-Soft_logits  | 76.77       | FitNet*     | 74.91
-AT     | 77.55              | FSP*     | 73.15
-KD_SVD    | 76.85         | KD_EID     | 77.22
-AB*         | 76.57         | RKD*     | 76.57         
-
-<img src="plots.png" width="800">
+|             |  Full Dataset |  50% Dataset  |  25% Dataset  |  10% Dataset  |
+|:-----------:|:-------------:|:-------------:|:-------------:|:-------------:|
+|   Methods   | Accuracy | Last Accuracy | Last Accuracy | Last Accuracy |
+|   Teacher   |         77.80 |       -       |       -       |       -       |
+|   Student   |         76.37 |         70.09 |         62.56 |         43.60 |
+| Soft_logits |         76.77 |         70.91 |         62.93 |         43.89 |
+|   FitNet*   |         74.91 |         67.82 |         61.11 |         43.01 |
+|      AT     |         77.55 |         72.00 |         64.71 |         49.03 |
+|     FSP*    |         73.15 |         67.25 |         58.86 |         41.03 |
+|     DML     |               |               |               |               |
+|    KD_SVD   |         76.85 |         72.70 |         66.91 |         53.00 |
+|    KD_EID   |         77.22 |         72.81 |         66.54 |         54.27 |
+|      FT     |               |               |               |               |
+|      AB     |         76.57 |         71.79 |         66.88 |         56.72 |
+|     RKD*    |         76.57 |         71.10 |         61.63 |         33.01 |
+|     VID     |               |               |               |               |
+|     MHGD    |         77.23 |         72.94 |         67.31 |         51.97 |
 # Plan to do
 - Converting TF1.x algorithm to TF2.0. ( 10 / 12 )
-- Final check for KD algorithm is on going.( 8 / 12 )
+- Final check for KD algorithm is on going.( 9 / 12 )
 
 

@@ -1,20 +1,41 @@
 import tensorflow as tf
 from nets import tcl
-
-class Soft_logits(tf.keras.layers.Layer):
+class FitNet(tf.keras.layers.Layer):
     '''
-    Geoffrey Hinton, Oriol Vinyals, and Jeff Dean.
+     Adriana Romero, Nicolas Ballas, Samira Ebrahimi Kahou, Antoine Chassang, Carlo Gatta,  and  Yoshua  Bengio.
+     Fitnets:   Hints  for  thin  deep  nets.
+     arXiv preprint arXiv:1412.6550, 2014.
+    '''
+    def __init__(self, target, source):
+        super(FitNet, self).__init__(target, source)
+        self.source = source
+        self.target = target
+        self.linear_map = []
+        self.feat_name = 'feature'
+        for t, s in zip(target, source):
+            Ds = source.shape[-1]
+            Dt = target.shape[-1]
+            if Ds != Dt:
+                self.linearmap.append(tcl.Conv2d([3,3], Dt, activation_fn = None))
+            else:
+                self.linear_map.append(None)
+                
+    def call(self, target_feat, source_feat):
+        def l2_loss(t,s,lm):
+            if lm:
+                t = lm(t)
+            return tf.resuce_mean(tf.square(t-s))
+            
+        return tf.add_n([l2_loss(t, s, lm) for t,s,lm in zip(target_feat, source_feat, self.linear_map)])
+    
+def Soft_logits(student, teacher, T = 2):
+    '''
+    Geoffrey Hinton, Oriol Vinyals, and Jeff Dean.  
     Distilling the knowledge in a neural network.
     arXiv preprint arXiv:1503.02531, 2015.
     '''
-    def __init__(self, target, source, T = 4, **kwargs):
-        super(Soft_logits, self).__init__(**kwargs)
-        self.T = T
-        self.feat_name = 'logits'
-
-    def call(self, target_feat, source_feat):
-        return tf.reduce_mean(tf.reduce_sum(tf.nn.softmax(source_feat/self.T)*(tf.nn.log_softmax(source_feat/self.T)
-                                                                              -tf.nn.log_softmax(target_feat/self.T)), 1))
+    with tf.variable_scope('KD'):
+        return tf.reduce_mean(tf.reduce_sum( tf.nn.softmax(teacher/T)*(tf.nn.log_softmax(teacher/T)-tf.nn.log_softmax(student/T)),1 ))
 
 def DML(student, teacher):
     '''

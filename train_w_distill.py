@@ -7,21 +7,17 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 from dataloader import Dataloader
 import op_util
 from nets import WResNet
-from nets import Response
 from nets import Multiple
-from nets import Shared
-from nets import Relation
 
 
 home_path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Variational_Information_Distillation Implementation via TF2.0 low-level coding')
 
 parser.add_argument("--train_dir", default="test", type=str)
-parser.add_argument("--architecture", default=[16,4], nargs='+', type=int)
 parser.add_argument("--Distillation", default="None", type=str,
                     help = 'Distillation method : Soft_logits, FitNet, AT, FSP, DML, KD-SVD, FT, AB, RKD')
 parser.add_argument("--trained_param", default="None", type=str)
-parser.add_argument("--dataset", default="cifar100", type=str)
+parser.add_argument("--dataset", default="cifar10", type=str)
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -43,65 +39,40 @@ if __name__ == '__main__':
     summary_writer = tf.summary.create_file_writer(args.train_dir)
     
     train_images, train_labels, val_images, val_labels, pre_processing = Dataloader(args.dataset, '')
-    train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels)).shuffle(100*batch_size).batch(batch_size)
+    train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels)).shuffle(100).batch(batch_size)
     train_ds = train_ds.map(pre_processing(is_training = True))
     test_ds = tf.data.Dataset.from_tensor_slices((val_images, val_labels)).batch(val_batch_size)
     test_ds = test_ds.map(pre_processing(is_training = False))
     
-    student_model = WResNet.Model(architecture=args.architecture, weight_decay = weight_decay, num_class = np.max(train_labels)+1,
+    student_model = WResNet.Model(architecture=[16,4], weight_decay = weight_decay, num_class = np.max(train_labels)+1,
                                   name = 'Student', trainable = True)
-    student_model(np.zeros([1]+list(train_images.shape[1:]), dtype=np.float32), training = False)
+    student_model(np.zeros([1]+list(train_images.shape[1:]), dtype=np.float32))
     
     if args.Distillation != 'None':
         teacher_model = WResNet.Model(architecture=[40,4], weight_decay = 0., num_class = np.max(train_labels)+1,
                                       name = 'Teacher', trainable = False)
-        teacher_model(np.zeros([1]+list(train_images.shape[1:]), dtype=np.float32), training = False)
+        teacher_model(np.zeros([1]+list(train_images.shape[1:]), dtype=np.float32))
     
-    if args.Distillation in {'AB','FitNet', 'FSP'}: ## Initialize via KD
+    if args.Distillation in {'AB','FitNet'}: ## Initialize via KD
         init_epoch = 20
         if args.Distillation == 'AB':
             distill_model = Multiple.AB(student_model, teacher_model, weight_decay = weight_decay)
-        elif args.Distillation == 'FitNet':
+        elif args.Distillation == 'Fitnet':
             distill_model = Multiple.FitNet(student_model, teacher_model, weight_decay = weight_decay)
-        elif args.Distillation == 'FSP':
-            distill_model = Shared.FSP(student_model, teacher_model, weight_decay = weight_decay)
             
-        init_step, init_loss = op_util.Initializer_Optimizer(student_model, teacher_model, distill_model, Learning_rate)
+        dist_step, dist_loss = op_util.Initializer_Optimizer(student_model, teacher_model, distill_model, Learning_rate)
         train_step, train_loss, train_accuracy,\
         test_step,  test_loss,  test_accuracy = op_util.Optimizer(student_model, Learning_rate)
-        
-    elif args.Distillation in {'Soft_logits','KD_SVD','KD_EID','VID', 'AT', 'RKD'}: ## take constraint via KD
+    elif args.Distillation in {'VID', 'AT'}: ## take constraint via KD
         init_epoch = 0
-        clipped = False
-        if args.Distillation == 'Soft_logits':
-            distill_model = Response.Soft_logits(student_model, teacher_model)
-        elif args.Distillation == 'AT':
+        if args.Distillation == 'AT':
             distill_model = Multiple.AT(student_model, teacher_model)
-        elif args.Distillation[:3] == 'KD_':
-            distill_model = Shared.KD_SVD(student_model, teacher_model, weight_decay, dist_type = args.Distillation[-3:])
-            clipped = True
         elif args.Distillation == 'VID':
             distill_model = Multiple.VID(student_model, teacher_model, weight_decay = weight_decay)
-        elif args.Distillation == 'RKD':
-            distill_model = Relation.RKD(student_model, teacher_model)
-        train_step, train_loss, train_accuracy, dist_loss,\
-        test_step,  test_loss,  test_accuracy = op_util.Multitask_Optimizer(student_model, teacher_model, distill_model,
-                                                                            Learning_rate, clipped = clipped)
-
-    elif args.Distillation in {'FT', 'MHGD'}:
-        init_epoch = 20
-        clipped = False
-        if args.Distillation == 'MHGD':
-            distill_model = Relation.MHGD(student_model, teacher_model, weight_decay = weight_decay)
-            clipped = True
-            
-        init_step,  init_loss = op_util.Auxiliary_Optimizer(teacher_model, distill_model, Learning_rate)
-        train_step, train_loss, train_accuracy, dist_loss,\
-        test_step,  test_loss,  test_accuracy = op_util.Multitask_Optimizer(student_model, teacher_model, distill_model,
-                                                                            Learning_rate, clipped = clipped)
-    
+        
+        train_step, train_loss, train_accuracy,\
+        test_step,  test_loss,  test_accuracy = op_util.Multitask_Optimizer(student_model, teacher_model, distill_model, Learning_rate)
     else:
-        args.Distillation = 'None'
         init_epoch = 0
         train_step, train_loss, train_accuracy,\
         test_step,  test_loss,  test_accuracy = op_util.Optimizer(student_model, Learning_rate)
@@ -116,23 +87,19 @@ if __name__ == '__main__':
         if args.Distillation != 'None':
             teacher_name = teacher_model.variables[0].name.split('/')[0]
             trained = sio.loadmat(args.trained_param)
-            n = 0
-            for v in teacher_model.non_trainable_variables:
+            for v in teacher_model.variables + teacher_model.non_trainable_variables:
                 v.assign(trained[v.name[len(teacher_name)+1:]])
-                n += 1
-            print (n, 'teacher params loaded')
         
         for epoch in range(init_epoch):
             train_time = time.time()
             for images, labels in train_ds:
-                init_step(images)
+                dist_step(images)
                 step += 1
                 if step % should_log == 0:
                     template = 'Global step {0:5d}: loss = {1:0.4f} ({2:1.3f} sec/step)'
-                    print (template.format(step, init_loss.result(), (time.time()-train_time)/should_log))
+                    print (template.format(step, dist_loss.result(), (time.time()-train_time)/should_log))
                     train_time = time.time()
-            tf.summary.scalar('Initialization/train', init_loss.result(), step=epoch+1)
-            init_loss.reset_states()
+            tf.summary.scalar('Initializer_loss/train', dist_loss.result(), step=epoch+1)
             
         for epoch in range(train_epoch):
             lr = LR_scheduler(epoch)
@@ -161,14 +128,9 @@ if __name__ == '__main__':
             logs['validation_acc'].append(test_accuracy.result()*100)
             train_loss.reset_states()
             train_accuracy.reset_states()
-
             test_loss.reset_states()
             test_accuracy.reset_states()
-
-            if args.Distillation not in {'None','AB','FitNet','FSP'}:
-                tf.summary.scalar('Distillation_loss/train', dist_loss.result(), step=epoch+1)
-                dist_loss.reset_states()
-
+            
         params = {}
         for v in student_model.variables:
             params[v.name[len(student_name)+1:]] = v.numpy()

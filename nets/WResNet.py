@@ -22,6 +22,7 @@ class Model(tf.keras.Model):
         self.n = (depth-4)//6
         
         self.wresnet_layers['conv0'] = tcl.Conv2d([3,3], self.nChannels[0], name = 'conv0')
+        self.wresnet_layers['bn0']   = tcl.BatchNorm(activation_fn = tf.nn.relu, name = 'bn0')
         in_planes = self.nChannels[0]
         
         for i, (c, s) in enumerate(zip(self.nChannels[1:], self.stride)):
@@ -33,6 +34,7 @@ class Model(tf.keras.Model):
                     self.wresnet_layers[block_name + '/bn0']   = tcl.BatchNorm(name = 'bn0')
                     self.wresnet_layers[block_name + '/conv1'] = tcl.Conv2d([3,3], c, strides = s if j == 0 else 1, name = 'conv1')
                     self.wresnet_layers[block_name + '/bn1']   = tcl.BatchNorm(activation_fn = tf.nn.relu, name = 'bn1')
+                    self.wresnet_layers[block_name + '/drop']  = tcl.Dropout(0.7)
                     self.wresnet_layers[block_name + '/conv2'] = tcl.Conv2d([3,3], c, strides = 1, name = 'conv2')
                             
                     if not(equalInOut):
@@ -43,10 +45,12 @@ class Model(tf.keras.Model):
     
     def call(self, x, training=None):
         x = self.wresnet_layers['conv0'](x)
+        x = self.wresnet_layers['bn0'](x, training = training)
         in_planes = self.nChannels[0]
         
         self.feature = []
         self.feature_noact = []
+        self.logits = []
         
         for i, (c, s) in enumerate(zip(self.nChannels[1:], self.stride)):
             for j in range(self.n):
@@ -86,6 +90,6 @@ class Model(tf.keras.Model):
         return x
     
     def get_feat(self, x, feat, training = None):
-        y = self.call(x, training)
-        return y, getattr(self, feat)
+        self.call(x, training)
+        return getattr(self, feat)
         

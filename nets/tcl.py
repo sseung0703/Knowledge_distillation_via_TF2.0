@@ -124,8 +124,8 @@ class BatchNorm(tf.keras.layers.Layer):
             param_initializers = {}
         if not(param_initializers.get('moving_mean')):
             param_initializers['moving_mean'] = tf.keras.initializers.Zeros()
-        if not(param_initializers.get('moving_var')):
-            param_initializers['moving_var'] = tf.keras.initializers.Ones()
+        if not(param_initializers.get('moving_stddev')):
+            param_initializers['moving_stddev'] = tf.keras.initializers.Ones()
         if not(param_initializers.get('gamma')) and scale:
             param_initializers['gamma'] = tf.keras.initializers.Ones()
         if not(param_initializers.get('beta')) and center:
@@ -149,9 +149,9 @@ class BatchNorm(tf.keras.layers.Layer):
         self.moving_mean = self.add_weight(name  = 'moving_mean', trainable = False,
                                       shape = [1]*(len(input_shape)-1)+[int(input_shape[-1])],
                                       initializer=self.param_initializers['moving_mean'])
-        self.moving_var = self.add_weight(name  = 'moving_var', trainable = False,
+        self.moving_stddev = self.add_weight(name  = 'moving_stddev', trainable = False,
                                       shape = [1]*(len(input_shape)-1)+[int(input_shape[-1])],
-                                      initializer=self.param_initializers['moving_var'])
+                                      initializer=self.param_initializers['moving_stddev'])
 
         if self.scale:
             self.gamma = self.add_weight(name  = 'gamma', 
@@ -159,16 +159,12 @@ class BatchNorm(tf.keras.layers.Layer):
                                          initializer=self.param_initializers['gamma'],
                                          regularizer=self.param_regularizers.get('gamma'),
                                          trainable = self.trainable)
-        else:
-            self.gamma = 1.
         if self.center:
             self.beta = self.add_weight(name  = 'beta', 
                                         shape = [1]*(len(input_shape)-1)+[int(input_shape[-1])],
                                         initializer=self.param_initializers['beta'],
                                         regularizer=self.param_regularizers.get('beta'),
                                         trainable = self.trainable)
-        else:
-            self.beta = 0.
             
     def EMA(self, variable, value):
         update_delta = (variable - value) * (1-self.alpha)
@@ -176,13 +172,17 @@ class BatchNorm(tf.keras.layers.Layer):
         
     def call(self, input, training=None):
         if training:
-            mean, var = tf.nn.moments(input, list(range(len(input.shape)-1)), keepdims=True)
+            mean, var = tf.nn.moments(input, list(range(len(input.get_shape())-1)), keepdims=True)
+            stddev = tf.sqrt(var + self.epsilon)
+            bn = (input-mean)/stddev
             self.EMA(self.moving_mean, mean)
-            self.EMA(self.moving_var, var)
+            self.EMA(self.moving_stddev, stddev)
         else:
-            mean = self.moving_mean
-            var = self.moving_var
-        bn = tf.nn.batch_normalization(input, mean, var, self.beta, self.gamma, self.epsilon)
+            bn = (input-self.moving_mean)/self.moving_stddev
+        if self.scale:
+            bn *= self.gamma
+        if self.center:
+            bn += self.beta
         if self.activation_fn:
             bn = self.activation_fn(bn)
         return bn
