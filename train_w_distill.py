@@ -11,7 +11,7 @@ from nets import Multiple
 
 
 home_path = os.path.dirname(os.path.abspath(__file__))
-parser = argparse.ArgumentParser(description='Variational_Information_Distillation Implementation via TF2.0 low-level coding')
+parser = argparse.ArgumentParser(description='Knowledge distillation via TF2.0 low-level coding')
 
 parser.add_argument("--train_dir", default="test", type=str)
 parser.add_argument("--Distillation", default="None", type=str,
