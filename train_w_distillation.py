@@ -103,7 +103,7 @@ if __name__ == '__main__':
                 n += 1
         print (n, 'params loaded')
 
-        Knowledge = importlib.import_module('distiller' + args.Knowledge)
+        Knowledge = importlib.import_module('distiller.' + args.Knowledge)
         model.distiller = Knowledge.distill(args, model, teacher)
         model(np.zeros([1]+args.input_size, dtype=np.float32), training = False)
     
