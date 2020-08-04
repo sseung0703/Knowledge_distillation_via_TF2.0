@@ -1,10 +1,7 @@
 # Knowledge_distillation_via_TF2.0
 - **Now, I'm fixing all the issues and refining the codes. It will be easier to understand how each KD works than before.**
 - **Algorithms are already implemented again, but they should be checked more with hyperparameter tuning.**
-<<<<<<< Updated upstream
-=======
 - **Note that some algorithms give an insufficient performance with my configuration. For example, for FitNet, multi-task learning is much better than the initialization. However, I have follow the author's way.**
->>>>>>> Stashed changes
 - This Repo. will be upgraded version of my previous benchmark Repo. ([link](https://github.com/sseung0703/KD_methods_with_TF))
   
 # Implemented Knowledge Distillation Methods
@@ -48,23 +45,6 @@ Each attention-head extracts the relation of feature map which contains knowledg
 |             |  Full Dataset |  50% Dataset  |  25% Dataset  |  10% Dataset  |
 |:-----------:|:-------------:|:-------------:|:-------------:|:-------------:|
 |   Methods   | Accuracy | Last Accuracy | Last Accuracy | Last Accuracy |
-<<<<<<< Updated upstream
-|   Teacher   |         - |       -       |       -       |       -       |
-|   Student   |         - |       -       |       -       |       -       |
-| Soft_logits |         - |       -       |       -       |       -       |
-|   FitNet    |         - |       -       |       -       |       -       |
-|      AT     |         - |       -       |       -       |       -       |
-|     FSP     |         - |       -       |       -       |       -       |
-|     DML     |         - |       -       |       -       |       -       |
-|    KD_SVD   |         - |       -       |       -       |       -       |
-|    KD_EID   |         - |       -       |       -       |       -       |
-|      FT     |         - |       -       |       -       |       -       |
-|      AB     |         - |       -       |       -       |       -       |
-|     RKD     |         - |       -       |       -       |       -       |
-|     VID     |         - |       -       |       -       |       -       |
-|     MHGD    |         - |       -       |       -       |       -       |
-|      CO     |         - |       -       |       -       |       -       |
-=======
 |   Teacher   |    78.59 |       -       |       -       |       -       |
 |   Student   |    76.25 |       -       |       -       |       -       |
 | Soft_logits |    76.57 |       -       |       -       |       -       |
@@ -80,7 +60,6 @@ Each attention-head extracts the relation of feature map which contains knowledg
 |     VID     |        - |       -       |       -       |       -       |
 |     MHGD    |        - |       -       |       -       |       -       |
 |      CO     |        - |       -       |       -       |       -       |
->>>>>>> Stashed changes
 
 # Plan to do
 - Check all the algorithms.
