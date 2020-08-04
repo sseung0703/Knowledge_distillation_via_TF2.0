@@ -56,9 +56,9 @@ class distill:
         optimizer = tf.keras.optimizers.SGD(1e-3, .9, nesterov=True)
         train_loss = tf.keras.metrics.Mean(name='train_loss')
 
+        teacher_aux = self.aux_layers[0].variables + self.aux_layers[1].variables
         @tf.function(experimental_compile=True)
         def training(images):
-            teacher_aux = self.aux_layers[0].variables + self.aux_layers[1].variables
             self.teacher(images)
             with tf.GradientTape() as tape:
                 tape.watch(teacher_aux)

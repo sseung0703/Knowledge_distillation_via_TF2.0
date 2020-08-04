@@ -16,29 +16,22 @@ def Optimizer(model, weight_decay, LR):
         test_loss = tf.keras.metrics.Mean(name='test_loss')
         test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='test_accuracy')
         
-    @tf.function(experimental_compile='Mobile' not in model.name and COMPILE_MODE)
+    @tf.function(experimental_compile = COMPILE_MODE)
     def training(images, labels):
         with tf.GradientTape(persistent = True) as tape:
             pred = model(images, training = True)
             target_loss = loss_object(labels, pred)
 
-            if hasattr(model, 'distiller'):
+            try:
                 total_loss = model.distiller.forward(images, labels, target_loss)
-            else:
+            except:
                 total_loss = target_loss
 
         trainable_variables = model.trainable_variables
-
-        if hasattr(model, 'distiller'):
-            if hasattr(model.distiller, 'aux_layers'):
-                for aux in model.distiller.aux_layers:
-                    trainable_variables += aux.trainable_variables
-            if hasattr(model.distiller, 'backward'):
-                gradients = model.distiller.backward(tape, total_loss, trainable_variables)
-            else:
-                gradients = tape.gradient(total_loss, trainable_variables)                
-        else:
-            gradients = tape.gradient(total_loss, trainable_variables)
+        try:
+            gradients = model.distiller.backward(tape, total_loss, trainable_variables)
+        except:
+            gradients = tape.gradient(total_loss, trainable_variables)                
 
         if weight_decay > 0.:
             gradients = [g+v*weight_decay for g,v in zip(gradients, trainable_variables)]
@@ -50,7 +43,7 @@ def Optimizer(model, weight_decay, LR):
 
         return optimizer._decayed_lr(var_dtype = tf.float32)
         
-    @tf.function(experimental_compile='Mobile' not in model.name and COMPILE_MODE)
+    @tf.function(experimental_compile = COMPILE_MODE)
     def validation(images, labels):
         pred = model(images, training = False)
         loss = loss_object(labels, pred)

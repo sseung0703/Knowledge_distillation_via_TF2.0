@@ -85,14 +85,14 @@ if __name__ == '__main__':
     
     train_images, train_labels, test_images, test_labels, pre_processing = Dataloader(args.dataset, args.data_path)
     datasets = build_dataset_proviers(train_images, train_labels, test_images, test_labels, pre_processing)
-    args.input_size = list(train_images.shape[1:])
+    args.input_shape = list(train_images.shape[1:])
     
     model = load_model(args.arch, np.max(test_labels) + 1)
-    model(np.zeros([1]+args.input_size, dtype=np.float32), training = False)
+    model(np.zeros([1]+args.input_shape, dtype=np.float32), training = False)
 
     if args.Knowledge is not None:
         teacher = load_model(args.teacher_arch, np.max(test_labels) + 1)
-        teacher(np.zeros([1]+args.input_size, dtype=np.float32), training = False)
+        teacher(np.zeros([1]+args.input_shape, dtype=np.float32), training = False)
 
         model_name = teacher.variables[0].name.split('/')[0]
         trained = sio.loadmat(args.trained_param)
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
         Knowledge = importlib.import_module('distiller.' + args.Knowledge)
         model.distiller = Knowledge.distill(args, model, teacher)
-        model(np.zeros([1]+args.input_size, dtype=np.float32), training = False)
+        model(np.zeros([1]+args.input_shape, dtype=np.float32), training = False)
     
     train_step, train_loss, train_accuracy,\
     test_step,  test_loss,  test_accuracy, optimizer = op_util.Optimizer(model, args.weight_decay, args.learning_rate)
@@ -137,6 +137,10 @@ if __name__ == '__main__':
 
         if hasattr(model.distiller, 'auxiliary_training'):
             model.distiller.auxiliary_training(datasets['train'])
+
+        if hasattr(model.distiller, 'initialize_student'):
+            model.distiller.initialize_student(datasets['train'])
+            del model.aux_layers
 
         ## Conventional training routine
         train_time = time.time()
