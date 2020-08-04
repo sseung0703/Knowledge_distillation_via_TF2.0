@@ -1,7 +1,7 @@
 # Knowledge_distillation_via_TF2.0
 - **Now, I'm fixing all the issues and refining the codes. It will be easier to understand how each KD works than before.**
 - **Algorithms are already implemented again, but they should be checked more with hyperparameter tuning.**
-- **Note that some algorithms give an insufficient performance with my configuration. For example, for FitNet, multi-task learning is much better than the initialization. However, I have follow the author's way.**
+- **Note that some algorithms give an insufficient performance with my configuration. For example, for FitNet, multi-task learning is much better than the initialization. However, I have followed the author's way.**
 - This Repo. will be upgraded version of my previous benchmark Repo. ([link](https://github.com/sseung0703/KD_methods_with_TF))
   
 # Implemented Knowledge Distillation Methods
