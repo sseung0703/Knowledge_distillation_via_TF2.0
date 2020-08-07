@@ -123,7 +123,7 @@ if __name__ == '__main__':
         step = 0
         logs = {'training_acc' : [], 'validation_acc' : []}
 
-        model_name = model.variables[0].name.split('/')[0]
+        model_name = model.name.split('/')[0]
         train_time = time.time()
         init_epoch = 0
 

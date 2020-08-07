@@ -25,13 +25,6 @@ class distill:
                                    for sl, tl in zip(self.student_layers, self.teacher_layers)]
         self.margin = 1.
         self.weight = 1e-4
-        self.build()
-
-    def build(self):
-        input = np.zeros([1] + self.args.input_shape, dtype = np.float32)
-        self.student(input, training = False)
-        for sl, aux in zip(self.student_layers, self.student.aux_layers):
-            aux.build(sl.feat.shape)
 
     def sampled_layer(self, arch, model):
         if 'WResNet' in arch:

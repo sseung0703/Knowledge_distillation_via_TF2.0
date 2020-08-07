@@ -55,13 +55,12 @@ Each attention-head extracts the relation of feature map which contains knowledg
 |     FSP     |    76.08 |       -       |       -       |       -       |
 |     DML     |        - |       -       |       -       |       -       |
 |    KD_SVD   |        - |       -       |       -       |       -       |
-|    KD_EID   |        - |       -       |       -       |       -       |
-|      FT     |        - |       -       |       -       |       -       |
+|      FT     |    77.30 |       -       |       -       |       -       |
 |      AB     |    76.52 |       -       |       -       |       -       |
 |     RKD     |    77.69 |       -       |       -       |       -       |
 |     VID     |        - |       -       |       -       |       -       |
 |     MHGD    |        - |       -       |       -       |       -       |
-|      CO     |        - |       -       |       -       |       -       |
+|      CO     |    78.54 |       -       |       -       |       -       |
 
 # Plan to do
 - Check all the algorithms.

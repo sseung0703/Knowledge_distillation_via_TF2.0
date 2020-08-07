@@ -22,7 +22,7 @@ class distill:
         setattr(tcl.Conv2d, 'pre_defined', kwargs(kernel_initializer = tf.keras.initializers.he_normal(),
                                                   use_biases = False, activation_fn = None, trainable = True))
         setattr(tcl.BatchNorm, 'pre_defined', kwargs(trainable = True))
-        self.aux_layers = [tf.keras.Sequential([tcl.Conv2d([1,1], tl.gamma.shape[-1]), tcl.BatchNorm()] ) 
+        self.student.aux_layers = [tf.keras.Sequential([tcl.Conv2d([1,1], tl.gamma.shape[-1]), tcl.BatchNorm()] ) 
                            for sl, tl in zip(self.student_layers, self.teacher_layers)]
 
         def get_margin(s, m):
@@ -40,11 +40,11 @@ class distill:
             return [model.Layers['BasicBlock%d.0/bn'%i] for i in range(1,3)] + [model.Layers['bn_last']]
 
     def loss(self, sl, tl, aux, m):
-        s = aux(sl.feat)
+        s = aux(sl.feat, training = True)
         t = tf.stop_gradient(tf.maximum(tl.feat, m))
         return tf.reduce_sum(tf.square(s - t) * tf.cast((s > t) | (t > 0), tf.float32))
 
     def forward(self, input, labels, target_loss):
         self.teacher(input, training = False)
         return target_loss + tf.add_n([self.loss(*data)/2**(len(self.student_layers)-i-1)
-                                       for i, data in enumerate(zip(self.student_layers, self.teacher_layers, self.aux_layers, self.margins))])/input.shape[0] * 3e-4
+                                       for i, data in enumerate(zip(self.student_layers, self.teacher_layers, self.student.aux_layers, self.margins))])/input.shape[0] * 1e-3
