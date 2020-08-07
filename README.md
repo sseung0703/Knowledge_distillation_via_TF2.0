@@ -1,7 +1,7 @@
 # Knowledge_distillation_via_TF2.0
 - **Now, I'm fixing all the issues and refining the codes. It will be easier to understand how each KD works than before.**
 - **Algorithms are already implemented again, but they should be checked more with hyperparameter tuning.**
-- **Note that some algorithms give an insufficient performance with my configuration. For example, for FitNet, multi-task learning is much better than the initialization. However, I have followed the author's way.**
+  - the algorithms which have experimental results have been confirmed.
 - This Repo. will be upgraded version of my previous benchmark Repo. ([link](https://github.com/sseung0703/KD_methods_with_TF))
   
 # Implemented Knowledge Distillation Methods
@@ -37,8 +37,10 @@ Each attention-head extracts the relation of feature map which contains knowledg
   - [Heo, Byeongho, et al. A comprehensive overhaul of feature distillation. ICCV 2019](https://openaccess.thecvf.com/content_ICCV_2019/html/Heo_A_Comprehensive_Overhaul_of_Feature_Distillation_ICCV_2019_paper.html) [[the original project link](https://github.com/clovaai/overhaul-distillation/)]
 
 # Experimental Results
-
-## Network architecture
+- I use WResNet-40-4 and WResNet-16-4 as the teacher and the student network, respectively.
+- All the algorithm is trained in the sample configuration, which is described in "train_w_distillation.py", and only each algorithm's hyper-parameters are tuned. I tried only several times to get acceptable performance, which means that my experimental results are perhaps not optimal.
+- Although some of the algorithms used soft-logits parallelly in the paper, I used only the proposed knowledge distillation algorithm to make a fair comparison.
+- Initialization-based methods give a far higher performance in the start point but a poor performance in the last point due to overfitting. Therefore, initialized students must have a regularization algorithm, such as Soft-logits.
 
 ## Training/Validation accuracy
 
@@ -48,15 +50,15 @@ Each attention-head extracts the relation of feature map which contains knowledg
 |   Teacher   |    78.59 |       -       |       -       |       -       |
 |   Student   |    76.25 |       -       |       -       |       -       |
 | Soft_logits |    76.57 |       -       |       -       |       -       |
-|   FitNet    |    75.04 |       -       |       -       |       -       |
+|   FitNet    |    75.78 |       -       |       -       |       -       |
 |      AT     |    78.14 |       -       |       -       |       -       |
-|     FSP     |    76.47 |       -       |       -       |       -       |
+|     FSP     |    76.08 |       -       |       -       |       -       |
 |     DML     |        - |       -       |       -       |       -       |
 |    KD_SVD   |        - |       -       |       -       |       -       |
 |    KD_EID   |        - |       -       |       -       |       -       |
 |      FT     |        - |       -       |       -       |       -       |
-|      AB     |        - |       -       |       -       |       -       |
-|     RKD     |        - |       -       |       -       |       -       |
+|      AB     |    76.52 |       -       |       -       |       -       |
+|     RKD     |    77.69 |       -       |       -       |       -       |
 |     VID     |        - |       -       |       -       |       -       |
 |     MHGD    |        - |       -       |       -       |       -       |
 |      CO     |        - |       -       |       -       |       -       |

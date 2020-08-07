@@ -25,7 +25,7 @@ class distill:
         self.student.aux_layers = [tf.keras.Sequential([tcl.Conv2d([1,1], tl.gamma.shape[-1]), tcl.BatchNorm()] ) 
                            for sl, tl in zip(self.student_layers, self.teacher_layers)]
         self.beta = 1e3
-
+        
         self.build()
 
     def build(self):
@@ -42,7 +42,7 @@ class distill:
             return [model.Layers['BasicBlock%d.0/bn'%i] for i in range(1,3)] + [model.Layers['bn_last']]
 
     def loss(self, sl, tl, aux):
-        s = aux(sl.feat)
+        s = aux(sl.feat, training = True)
         t = tf.stop_gradient(tl.feat)
         return tf.reduce_mean(tf.square(tf.nn.l2_normalize(s, [1,2]) - tf.nn.l2_normalize(t, [1,2])))
 

@@ -8,7 +8,7 @@ def Distance_wise_potential(x):
     x_square = tf.reduce_sum(tf.square(x),-1)
     prod = tf.matmul(x,x,transpose_b=True)
     distance = tf.sqrt(tf.maximum(tf.expand_dims(x_square,1)+tf.expand_dims(x_square,0) -2*prod, 1e-12))
-    mu = tf.reduce_sum(distance)/tf.reduce_sum(tf.where(distance > 0., tf.ones_like(distance), tf.zeros_like(distance)))
+    mu = tf.reduce_sum(distance)/tf.reduce_sum(tf.cast(distance > 0.,tf.float32))
     return distance/(mu+1e-8)
             
 def Angle_wise_potential(x):
@@ -33,12 +33,12 @@ class distill:
 
     def sampled_layer(self, arch, model):
         if 'WResNet' in arch:
-            model.Layers['fc'].keep_feat = 'input'
+            model.Layers['fc'].keep_feat = 'output'
             return model.Layers['fc']
 
     def loss(self, sl, tl):
-        s = sl.feat
-        t = tl.feat
+        s = tf.nn.l2_normalize(sl.feat, 1)
+        t = tf.nn.l2_normalize(tl.feat, 1)
         distance_loss = Huber_loss(Distance_wise_potential(s),Distance_wise_potential(t))
         angle_loss    = Huber_loss(   Angle_wise_potential(s),   Angle_wise_potential(t))    
         return distance_loss*self.l[0]+angle_loss*self.l[1]
