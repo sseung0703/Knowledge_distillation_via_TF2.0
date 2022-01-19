@@ -20,6 +20,8 @@ class distill:
         self.aux_layers = [tf.keras.Sequential([tcl.Conv2d([1,1], tl.gamma.shape[-1]), tcl.BatchNorm()] ) 
                            for sl, tl in zip(self.student_layers, self.teacher_layers)]
 
+        self.distilled_SV = 4
+
     def sampled_layer(self, arch, model):
         if 'WResNet' in arch:
             for i in range(1,3):
@@ -33,13 +35,12 @@ class distill:
         distill_loss = []
         for i, (aux, s, t) in enumerate(zip(self.aux_layers, self.student_layers, self.teacher_layers)):
             B,H,W,D = s.feat.shape
-            ts, tU, tV = SVD.SVD(t.feat, 1)
+            with tf.device('cpu'):
+                ts, tU, tV = SVD.SVD(t.feat, self.distilled_SV)
 
             feat = tf.reshape(aux(s.feat), [B,H*W,D])
             sVs = tf.matmul(feat, tU, transpose_a = True)
             sV = tf.nn.l2_normalize(sVs, 1)
-
-            _, _, sV = SVD.SVD(aux(s.feat), 1)
             
             ts = tf.expand_dims(ts,1)
             sV *= ts

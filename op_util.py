@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
+## when you try KDSVD, please do not compile
 COMPILE_MODE = True
 
 def Optimizer(model, weight_decay, LR):
@@ -16,14 +17,15 @@ def Optimizer(model, weight_decay, LR):
         test_loss = tf.keras.metrics.Mean(name='test_loss')
         test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='test_accuracy')
         
-    @tf.function(experimental_compile = COMPILE_MODE)
+    @tf.function(jit_compile = COMPILE_MODE)
     def training(images, labels):
         with tf.GradientTape(persistent = True) as tape:
             pred = model(images, training = True)
             target_loss = loss_object(labels, pred)
 
             try:
-                total_loss = model.distiller.forward(images, labels, target_loss)
+                print('check')
+            total_loss = model.distiller.forward(images, labels, target_loss)
             except:
                 total_loss = target_loss
 
@@ -43,7 +45,7 @@ def Optimizer(model, weight_decay, LR):
 
         return optimizer._decayed_lr(var_dtype = tf.float32)
         
-    @tf.function(experimental_compile = COMPILE_MODE)
+    @tf.function(jit_compile = COMPILE_MODE)
     def validation(images, labels):
         pred = model(images, training = False)
         loss = loss_object(labels, pred)

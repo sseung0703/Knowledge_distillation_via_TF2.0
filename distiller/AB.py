@@ -24,7 +24,6 @@ class distill:
         self.student.aux_layers = [tf.keras.Sequential([tcl.Conv2d([1,1], tl.gamma.shape[-1]), tcl.BatchNorm()] ) 
                                    for sl, tl in zip(self.student_layers, self.teacher_layers)]
         self.margin = 1.
-        self.weight = 1e-4
 
     def sampled_layer(self, arch, model):
         if 'WResNet' in arch:
@@ -45,7 +44,7 @@ class distill:
         optimizer = tf.keras.optimizers.SGD(self.args.learning_rate, .9, nesterov=True)
         train_loss = tf.keras.metrics.Mean(name='train_loss')
 
-        @tf.function(experimental_compile=True)
+        @tf.function(jit_compile=True)
         def init_forward(input):
             self.teacher(input, training = False)
             with tf.GradientTape(persistent = True) as tape:

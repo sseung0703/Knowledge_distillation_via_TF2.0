@@ -12,6 +12,8 @@ def SVD(x, n):
     u = removenan(u)
        
     s = tf.nn.l2_normalize(tf.slice(s,[0,0],[-1,n]),1)
+    v = tf.nn.l2_normalize(tf.slice(v,[0,0,0],[-1,-1,n]),1)
+    u = tf.nn.l2_normalize(tf.slice(u,[0,0,0],[-1,-1,n]),1)
     return s, u, v
 
 def Align_rsv(x, y):

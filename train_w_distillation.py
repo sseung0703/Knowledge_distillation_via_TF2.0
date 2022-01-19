@@ -31,8 +31,8 @@ parser.add_argument("--val_batch_size", default=200, type=int)
 parser.add_argument("--train_epoch", default=100, type=int)
 
 parser.add_argument("--Knowledge", type=str)
-parser.add_argument("--teacher_arch", default='ResNet-56', type=str)
-parser.add_argument("--trained_param", type=str)
+parser.add_argument("--teacher_arch", default='WResNet-40-4', type=str)
+parser.add_argument("--trained_param", default = 'pretrained/WRN404.mat', type=str)
 
 parser.add_argument("--gpu_id", default=0, type=int)
 parser.add_argument("--do_log", default=200, type=int)
@@ -68,7 +68,7 @@ def build_dataset_proviers(train_images, train_labels, test_images, test_labels,
 
     train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels)).cache()
     train_ds = train_ds.map(pre_processing(is_training = True),  num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    train_ds = train_ds.shuffle(100*args.batch_size).batch(args.batch_size).prefetch(tf.data.experimental.AUTOTUNE)
+    train_ds = train_ds.shuffle(100*args.batch_size).batch(args.batch_size, drop_remainder = True).prefetch(tf.data.experimental.AUTOTUNE)
 
     return {'train': train_ds, 'test': test_ds}
 
@@ -135,12 +135,14 @@ if __name__ == '__main__':
         with open(os.path.join(args.train_path, 'arguments.txt'), 'w') as f:
             json.dump(args.__dict__, f, indent=2)
 
-        if hasattr(model.distiller, 'auxiliary_training'):
-            model.distiller.auxiliary_training(datasets['train'])
+        if hasattr(model, 'distiller'):
+            if hasattr(model.distiller, 'auxiliary_training'):
+                print ('Some distillers have untrained teacher parameters, which produces Warnings. Please ignore it.')
+                model.distiller.auxiliary_training(datasets['train'])
 
-        if hasattr(model.distiller, 'initialize_student'):
-            model.distiller.initialize_student(datasets['train'])
-            del model.aux_layers
+            if hasattr(model.distiller, 'initialize_student'):
+                model.distiller.initialize_student(datasets['train'])
+                del model.aux_layers
 
         ## Conventional training routine
         train_time = time.time()
