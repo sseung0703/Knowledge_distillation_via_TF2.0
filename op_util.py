@@ -24,8 +24,7 @@ def Optimizer(model, weight_decay, LR):
             target_loss = loss_object(labels, pred)
 
             try:
-                print('check')
-            total_loss = model.distiller.forward(images, labels, target_loss)
+                total_loss = model.distiller.forward(images, labels, target_loss)
             except:
                 total_loss = target_loss
 
