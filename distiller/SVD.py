@@ -26,7 +26,6 @@ def Align_rsv(x, y):
 @tf.custom_gradient
 def SVD_custom(x):
     with tf.device('CPU'):
-        s, U, V =  tf.linalg.svd(x)
         B,M,N = x.shape
         
         xx = tf.matmul(x, x, transpose_a = M > N, transpose_b = M <= N)
